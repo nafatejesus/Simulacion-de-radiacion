@@ -36,7 +36,7 @@ class ModuloLuzIncidente:
         contenedor = tk.Frame(self.root, bg="#1e1e1e")
         contenedor.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        f_izq = tk.LabelFrame(contenedor, text=" Luz Incidente ", bg="#1e1e1e", fg="white", font=("Arial", 9, "bold"))
+        f_izq = tk.LabelFrame(contenedor, text=" Propagación y Frontera del Material ", bg="#1e1e1e", fg="white", font=("Arial", 9, "bold"))
         f_izq.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         self.canvas_izq = tk.Canvas(f_izq, bg="black", highlightthickness=0)
         self.canvas_izq.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -45,11 +45,6 @@ class ModuloLuzIncidente:
         f_cen.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
         self.canvas_cen = tk.Canvas(f_cen, bg="#0a0a0a", highlightthickness=0)
         self.canvas_cen.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        f_der = tk.LabelFrame(contenedor, text=" Espectros de Absorción y Fluorescencia ", bg="#1e1e1e", fg="white", font=("Arial", 9, "bold"))
-        f_der.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
-        self.canvas_der = tk.Canvas(f_der, bg="black", highlightthickness=0)
-        self.canvas_der.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
     def crear_controles_linterna(self):
         f_controles = tk.LabelFrame(self.root, text=" Panel de Controles ", bg="#252526", fg="#00ffcc", font=("Arial", 10, "bold"))
@@ -73,7 +68,7 @@ class ModuloLuzIncidente:
         self.lbl_wave = ttk.Label(f_wave_hdr, text=f"Longitud de onda (λ): {self.wavelength:.0f} nm")
         self.lbl_wave.pack(side=tk.LEFT)
         
-        colores_rapidos = [("Rojo", 650, "#cc0000"), ("Verde", 530, "#00aa00"), ("Azul", 450, "#0044ff")]
+        colores_rapidos = [("Rojo", 650, "#cc0000"), ("Verde", 520, "#00aa00"), ("Azul", 450, "#0044ff")]
         for color, nm, hex_c in colores_rapidos:
             b = tk.Button(f_wave_hdr, text=color, bg=hex_c, fg="white", font=("Arial", 8, "bold"),
                           command=lambda n=nm: self.fijar_color_rapido(n))
@@ -137,8 +132,21 @@ class ModuloLuzIncidente:
         
         if w > 1:
             cy = h / 2
+            offset_y = h / 3.5  # Separación vertical para las ondas resultantes
+            x_barrera = w * 0.55  # Posición de la frontera del material
             color_actual = self.wavelength_to_hex(self.wavelength)
             
+            # --- DIBUJO DEL ENTORNO ---
+            # Material absorbente / transparente (Barrera derecha)
+            self.canvas_izq.create_rectangle(x_barrera, 0, w, h, fill="#1a202c", outline="")
+            self.canvas_izq.create_line(x_barrera, 0, x_barrera, h, fill="#4a5568", width=2, dash=(4, 4))
+            
+            # Textos de los canales
+            self.canvas_izq.create_text(x_barrera - 80, cy - offset_y - 25, text="Onda Reflejada", fill="#a0aec0", font=("Arial", 10, "bold"))
+            self.canvas_izq.create_text(x_barrera + 80, cy - 25, text="Onda Absorbida", fill="#a0aec0", font=("Arial", 10, "bold"))
+            self.canvas_izq.create_text(x_barrera + 80, cy + offset_y - 25, text="Onda Transmitida", fill="#a0aec0", font=("Arial", 10, "bold"))
+            
+            # Linterna (Láser)
             self.canvas_izq.create_rectangle(15, cy - 20, 65, cy + 20, fill="#555555", outline="#888888", width=1.5)
             self.canvas_izq.create_polygon(65, cy - 20, 105, cy - 35, 105, cy + 35, 65, cy + 20, fill="#333333", outline="#888888", width=1.5)
             color_switch = "#00ff00" if self.laser_encendido else "#aa0000"
@@ -147,20 +155,65 @@ class ModuloLuzIncidente:
             if self.laser_encendido:
                 self.canvas_izq.create_oval(100, cy - 35, 110, cy + 35, fill=color_actual, outline="")
                 
-                puntos = []
-                amp = (self.intensidad / 100.0) * (h / 4)
-                frec_angular = (2 * math.pi) / max(10, (750 - self.wavelength))
+                # --- MATEMÁTICA DE LAS ONDAS ---
+                # Todas las ondas tendrán la misma amplitud por el momento según tu solicitud
+                amp_universal = (self.intensidad / 100.0) * (h / 8)
+                k_incidente = (2 * math.pi) / max(10, (750 - self.wavelength)) 
                 
-                for x in range(105, w, 2):
-                    y = cy + amp * math.sin(frec_angular * (x - 105) - self.fase_onda)
-                    puntos.append((x, y))
+                # Fase exacta de la onda al tocar la barrera para que las divisiones nazcan sincronizadas
+                fase_en_frontera = k_incidente * (x_barrera - 105) - self.fase_onda
+
+                puntos_inc = []
+                puntos_ref = []
+                puntos_abs = []
+                puntos_trans = []
+                
+                # 1. Calcular Onda Incidente (Centro, viaja a la derecha)
+                for x in range(105, int(x_barrera), 2):
+                    y = cy + amp_universal * math.sin(k_incidente * (x - 105) - self.fase_onda)
+                    puntos_inc.append((x, y))
                     
-                if len(puntos) > 1:
-                    self.canvas_izq.create_line(puntos, fill=color_actual, width=3)
+                # 2. Calcular Onda Reflejada (Canal Superior, viaja a la izquierda hacia el láser)
+                cy_ref = cy - offset_y
+                for x in range(105, int(x_barrera), 2):
+                    # Se suma pi para simular el rebote en un medio más denso y se invierte el viaje
+                    y = cy_ref + amp_universal * math.sin(k_incidente * (x_barrera - x) + fase_en_frontera + math.pi)
+                    puntos_ref.append((x, y))
+
+                # 3. Calcular Onda Absorbida (Canal Central, viaja a la derecha dentro del material)
+                cy_abs = cy
+                for x in range(int(x_barrera), w, 2):
+                    y = cy_abs + amp_universal * math.sin(k_incidente * (x - x_barrera) + fase_en_frontera)
+                    puntos_abs.append((x, y))
+
+                # 4. Calcular Onda Transmitida (Canal Inferior, viaja a la derecha dentro del material)
+                cy_trans = cy + offset_y
+                for x in range(int(x_barrera), w, 2):
+                    y = cy_trans + amp_universal * math.sin(k_incidente * (x - x_barrera) + fase_en_frontera)
+                    puntos_trans.append((x, y))
+                    
+                # --- RENDERIZADO VISUAL ---
+                # Dibujar líneas guía verticales en la frontera para conectar las 3 divisiones
+                self.canvas_izq.create_line(x_barrera, cy_ref, x_barrera, cy_trans, fill=color_actual, dash=(2, 2))
+                self.canvas_izq.create_oval(x_barrera-4, cy_ref-4, x_barrera+4, cy_ref+4, fill=color_actual)
+                self.canvas_izq.create_oval(x_barrera-4, cy_abs-4, x_barrera+4, cy_abs+4, fill=color_actual)
+                self.canvas_izq.create_oval(x_barrera-4, cy_trans-4, x_barrera+4, cy_trans+4, fill=color_actual)
+
+                # Dibujar los caminos de onda
+                if len(puntos_inc) > 1:
+                    self.canvas_izq.create_line(puntos_inc, fill=color_actual, width=3) # Principal gruesa
+                if len(puntos_ref) > 1:
+                    self.canvas_izq.create_line(puntos_ref, fill=color_actual, width=2) # Reflexión
+                if len(puntos_abs) > 1:
+                    self.canvas_izq.create_line(puntos_abs, fill=color_actual, width=2) # Absorción
+                if len(puntos_trans) > 1:
+                    self.canvas_izq.create_line(puntos_trans, fill=color_actual, width=2) # Transmisión
                 
+                # Avanzar el tiempo (fase)
                 self.fase_onda += 0.35 
         
-        self.root.after(22, self.bucle_animacion)
+        # Bucle 60 FPS aprox.
+        self.root.after(16, self.bucle_animacion)
 
 if __name__ == "__main__":
     root = tk.Tk()
