@@ -7,9 +7,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
-# =====================================================================
-# PARTE 1: CÓDIGO BASE DE TU COMPAÑERO (Módulo Luz Incidente)
-# =====================================================================
+# PARTE 1: BASE Y CONTROLES DE LA SIMULACIÓN
 class ModuloLuzIncidente:
     def __init__(self, root):
         self.root = root
@@ -338,9 +336,7 @@ class ModuloLuzIncidente:
         self.root.after(16, self.bucle_animacion)
 
 
-# =====================================================================
 # PARTE 2: LÓGICA MATEMÁTICA Y ANIMACIÓN DEL ÁTOMO
-# =====================================================================
 def curva_gaussiana(x, mu, sigma, amplitud):
     return amplitud * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
@@ -488,9 +484,7 @@ def integrar_panel_central_atomo(app):
     loop_renderizado_atomo()
 
 
-# =====================================================================
-# PARTE 3: INTEGRACIÓN FINAL Y PANEL DERECHO (GRÁFICAS)
-# =====================================================================
+# PARTE 3: INTEGRACIÓN DE GRAFICAS Y ANIMACIÓN DE FLUORESCENCIA
 def iniciar_programa_completo():
     root = tk.Tk()
     app = ModuloLuzIncidente(root)
