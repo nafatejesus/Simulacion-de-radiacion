@@ -1,8 +1,15 @@
 import tkinter as tk
 from tkinter import ttk
 import math
+import random
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
+# =====================================================================
+# PARTE 1: CÓDIGO BASE DE TU COMPAÑERO (Módulo Luz Incidente)
+# =====================================================================
 class ModuloLuzIncidente:
     def __init__(self, root):
         self.root = root
@@ -41,11 +48,11 @@ class ModuloLuzIncidente:
         titulo.pack(side=tk.TOP, fill=tk.X)
 
     def crear_paneles_completos(self):
-        contenedor = tk.Frame(self.root, bg="#1e1e1e")
-        contenedor.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        self.contenedor = tk.Frame(self.root, bg="#1e1e1e")
+        self.contenedor.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
 
         f_izq = tk.LabelFrame(
-            contenedor,
+            self.contenedor,
             text=" Propagación y Frontera del Material ",
             bg="#1e1e1e",
             fg="white",
@@ -56,7 +63,7 @@ class ModuloLuzIncidente:
         self.canvas_izq.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         f_cen = tk.LabelFrame(
-            contenedor,
+            self.contenedor,
             text=" Átomo (Niveles de Energía) ",
             bg="#1e1e1e",
             fg="white",
@@ -193,12 +200,10 @@ class ModuloLuzIncidente:
 
         if w > 1:
             cy = h / 2
-            offset_y = h / 3.5  # Separación vertical para las ondas resultantes
-            x_barrera = w * 0.55  # Posición de la frontera del material
+            offset_y = h / 3.5
+            x_barrera = w * 0.55
             color_actual = self.wavelength_to_hex(self.wavelength)
 
-            # --- DIBUJO DEL ENTORNO ---
-            # Material absorbente / transparente (Barrera derecha)
             self.canvas_izq.create_rectangle(
                 x_barrera, 0, w, h, fill="#1a202c", outline=""
             )
@@ -206,7 +211,6 @@ class ModuloLuzIncidente:
                 x_barrera, 0, x_barrera, h, fill="#4a5568", width=2, dash=(4, 4)
             )
 
-            # Textos de los canales
             self.canvas_izq.create_text(
                 x_barrera - 80,
                 cy - offset_y - 25,
@@ -229,7 +233,6 @@ class ModuloLuzIncidente:
                 font=("Arial", 10, "bold"),
             )
 
-            # Linterna (Láser)
             self.canvas_izq.create_rectangle(
                 15, cy - 20, 65, cy + 20, fill="#555555", outline="#888888", width=1.5
             )
@@ -256,36 +259,25 @@ class ModuloLuzIncidente:
                     100, cy - 35, 110, cy + 35, fill=color_actual, outline=""
                 )
 
-                # --- MATEMÁTICA DE LAS ONDAS ---
-                # Todas las ondas tendrán la misma amplitud por el momento según tu solicitud
                 amp_universal = (self.intensidad / 100.0) * (h / 8)
                 k_incidente = (2 * math.pi) / max(10, (750 - self.wavelength))
-
-                # Fase exacta de la onda al tocar la barrera para que las divisiones nazcan sincronizadas
                 fase_en_frontera = k_incidente * (x_barrera - 105) - self.fase_onda
 
-                puntos_inc = []
-                puntos_ref = []
-                puntos_abs = []
-                puntos_trans = []
+                puntos_inc, puntos_ref, puntos_abs, puntos_trans = [], [], [], []
 
-                # 1. Calcular Onda Incidente (Centro, viaja a la derecha)
                 for x in range(105, int(x_barrera), 2):
                     y = cy + amp_universal * math.sin(
                         k_incidente * (x - 105) - self.fase_onda
                     )
                     puntos_inc.append((x, y))
 
-                # 2. Calcular Onda Reflejada (Canal Superior, viaja a la izquierda hacia el láser)
                 cy_ref = cy - offset_y
                 for x in range(105, int(x_barrera), 2):
-                    # Se suma pi para simular el rebote en un medio más denso y se invierte el viaje
                     y = cy_ref + amp_universal * math.sin(
                         k_incidente * (x_barrera - x) + fase_en_frontera + math.pi
                     )
                     puntos_ref.append((x, y))
 
-                # 3. Calcular Onda Absorbida (Canal Central, viaja a la derecha dentro del material)
                 cy_abs = cy
                 for x in range(int(x_barrera), w, 2):
                     y = cy_abs + amp_universal * math.sin(
@@ -293,7 +285,6 @@ class ModuloLuzIncidente:
                     )
                     puntos_abs.append((x, y))
 
-                # 4. Calcular Onda Transmitida (Canal Inferior, viaja a la derecha dentro del material)
                 cy_trans = cy + offset_y
                 for x in range(int(x_barrera), w, 2):
                     y = cy_trans + amp_universal * math.sin(
@@ -301,8 +292,6 @@ class ModuloLuzIncidente:
                     )
                     puntos_trans.append((x, y))
 
-                # --- RENDERIZADO VISUAL ---
-                # Dibujar líneas guía verticales en la frontera para conectar las 3 divisiones
                 self.canvas_izq.create_line(
                     x_barrera,
                     cy_ref,
@@ -333,32 +322,345 @@ class ModuloLuzIncidente:
                     fill=color_actual,
                 )
 
-                # Dibujar los caminos de onda
                 if len(puntos_inc) > 1:
-                    self.canvas_izq.create_line(
-                        puntos_inc, fill=color_actual, width=3
-                    )  # Principal gruesa
+                    self.canvas_izq.create_line(puntos_inc, fill=color_actual, width=3)
                 if len(puntos_ref) > 1:
-                    self.canvas_izq.create_line(
-                        puntos_ref, fill=color_actual, width=2
-                    )  # Reflexión
+                    self.canvas_izq.create_line(puntos_ref, fill=color_actual, width=2)
                 if len(puntos_abs) > 1:
-                    self.canvas_izq.create_line(
-                        puntos_abs, fill=color_actual, width=2
-                    )  # Absorción
+                    self.canvas_izq.create_line(puntos_abs, fill=color_actual, width=2)
                 if len(puntos_trans) > 1:
                     self.canvas_izq.create_line(
                         puntos_trans, fill=color_actual, width=2
-                    )  # Transmisión
+                    )
 
-                # Avanzar el tiempo (fase)
                 self.fase_onda += 0.35
 
-        # Bucle 60 FPS aprox.
         self.root.after(16, self.bucle_animacion)
 
 
-if __name__ == "__main__":
+# =====================================================================
+# PARTE 2: LÓGICA MATEMÁTICA Y ANIMACIÓN DEL ÁTOMO
+# =====================================================================
+def curva_gaussiana(x, mu, sigma, amplitud):
+    return amplitud * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+
+
+def integrar_panel_central_atomo(app):
+    app.banda_absorcion_min = 500.0
+    app.banda_absorcion_max = 550.0
+    app.electron_excitado = False
+    app.contador_tiempo_simulado = 0.0
+    app.tiempo_vida_simulado = 5000.0
+
+    app.foton_activo = False
+    app.foton_x, app.foton_y, app.foton_angulo, app.foton_velocidad, app.foton_fase = (
+        0.0,
+        0.0,
+        0.0,
+        5.0,
+        0.0,
+    )
+
+    def loop_renderizado_atomo():
+        app.canvas_cen.delete("all")
+        w = app.canvas_cen.winfo_width()
+        h = app.canvas_cen.winfo_height()
+
+        if w > 1:
+            cx, cy = w / 2, h / 2
+            r_fundamental, r_excitado = 40.0, 90.0
+
+            if app.laser_encendido and (
+                app.banda_absorcion_min <= app.wavelength <= app.banda_absorcion_max
+            ):
+                if not app.electron_excitado:
+                    app.electron_excitado = True
+                    app.contador_tiempo_simulado = 0.0
+            else:
+                if not app.laser_encendido:
+                    app.electron_excitado = False
+
+            if app.electron_excitado:
+                app.contador_tiempo_simulado += 35.0
+                if app.contador_tiempo_simulado >= app.tiempo_vida_simulado:
+                    app.electron_excitado = False
+                    app.contador_tiempo_simulado = 0.0
+                    app.foton_activo = True
+                    app.foton_x, app.foton_y = cx, cy
+                    app.foton_angulo = random.uniform(0, 2 * math.pi)
+
+            color_n1 = "#4a5568"
+            color_n2 = "#00f0ff" if app.electron_excitado else "#2d3748"
+
+            app.canvas_cen.create_oval(
+                cx - r_fundamental,
+                cy - r_fundamental,
+                cx + r_fundamental,
+                cy + r_fundamental,
+                outline=color_n1,
+                width=2,
+                dash=(2, 2),
+            )
+            app.canvas_cen.create_oval(
+                cx - r_excitado,
+                cy - r_excitado,
+                cx + r_excitado,
+                cy + r_excitado,
+                outline=color_n2,
+                width=3,
+            )
+            app.canvas_cen.create_oval(
+                cx - 15, cy - 15, cx + 15, cy + 15, fill="#cc0000", outline="#ff3333"
+            )
+            app.canvas_cen.create_text(
+                cx, cy, text="+", fill="white", font=("Arial", 12, "bold")
+            )
+            app.canvas_cen.create_text(
+                cx - r_fundamental - 20,
+                cy,
+                text="n=1",
+                fill="#a0aec0",
+                font=("Arial", 9),
+            )
+            app.canvas_cen.create_text(
+                cx - r_excitado - 20,
+                cy,
+                text="n=2",
+                fill=color_n2,
+                font=("Arial", 9, "bold"),
+            )
+
+            r_actual = r_excitado if app.electron_excitado else r_fundamental
+            color_electron = "#ffff00" if app.electron_excitado else "#00ffcc"
+            angulo_electron = app.fase_onda * 0.1
+            ex = cx + r_actual * math.cos(angulo_electron)
+            ey = cy + r_actual * math.sin(angulo_electron)
+            app.canvas_cen.create_oval(
+                ex - 7,
+                ey - 7,
+                ex + 7,
+                ey + 7,
+                fill=color_electron,
+                outline="white",
+                width=1,
+            )
+
+            if app.foton_activo:
+                app.foton_x += app.foton_velocidad * math.cos(app.foton_angulo)
+                app.foton_y += app.foton_velocidad * math.sin(app.foton_angulo)
+                app.foton_fase += 0.8
+
+                puntos_foton = []
+                for i in range(30):
+                    t = i - 15
+                    basex = app.foton_x + t * math.cos(app.foton_angulo)
+                    basey = app.foton_y + t * math.sin(app.foton_angulo)
+                    perpx, perpy = (
+                        -math.sin(app.foton_angulo),
+                        math.cos(app.foton_angulo),
+                    )
+                    amp_foton = 6 * math.sin((i / 30) * math.pi)
+                    osc = amp_foton * math.sin(app.foton_fase + i * 0.5)
+                    puntos_foton.append((basex + perpx * osc, basey + perpy * osc))
+
+                if len(puntos_foton) > 1:
+                    app.canvas_cen.create_line(puntos_foton, fill="#ff6600", width=2)
+
+                if (
+                    app.foton_x < 0
+                    or app.foton_x > w
+                    or app.foton_y < 0
+                    or app.foton_y > h
+                ):
+                    app.foton_activo = False
+
+            if app.electron_excitado:
+                app.canvas_cen.create_text(
+                    cx,
+                    h - 30,
+                    text=f"Estado Excitado: {app.contador_tiempo_simulado / 1000:.2f} ns",
+                    fill="#ffff00",
+                    font=("Arial", 10, "bold"),
+                )
+
+        app.root.after(35, loop_renderizado_atomo)
+
+    loop_renderizado_atomo()
+
+
+# =====================================================================
+# PARTE 3: INTEGRACIÓN FINAL Y PANEL DERECHO (GRÁFICAS)
+# =====================================================================
+def iniciar_programa_completo():
     root = tk.Tk()
     app = ModuloLuzIncidente(root)
+
+    f_der = tk.LabelFrame(
+        app.contenedor,
+        text=" Fluorescencia y Espectros ",
+        bg="#1e1e1e",
+        fg="white",
+        font=("Arial", 9, "bold"),
+    )
+    f_der.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5)
+
+    app.canvas_der = tk.Frame(f_der, bg="#1e1e1e")
+    app.canvas_der.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+    bg_color = "#000000"
+    borde_verde = "#00FF00"
+
+    frame_arriba = tk.Frame(app.canvas_der, bg=bg_color)
+    frame_medio = tk.Frame(app.canvas_der, bg=bg_color, height=160)
+    frame_abajo = tk.Frame(app.canvas_der, bg=bg_color)
+
+    frame_arriba.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    frame_medio.pack(side=tk.TOP, fill=tk.X, pady=5)
+    frame_abajo.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    fig_abs = Figure(figsize=(4, 2.0), dpi=100)
+    fig_abs.patch.set_facecolor(bg_color)
+    ax_abs = fig_abs.add_subplot(111, facecolor=bg_color)
+
+    fig_flu = Figure(figsize=(4, 2.0), dpi=100)
+    fig_flu.patch.set_facecolor(bg_color)
+    ax_flu = fig_flu.add_subplot(111, facecolor=bg_color)
+
+    for ax, titulo in zip(
+        [ax_abs, ax_flu], ["Espectro de Absorción", "Espectro de Fluorescencia"]
+    ):
+        ax.set_title(titulo, color=borde_verde, fontsize=10, fontweight="bold", pad=6)
+        ax.tick_params(colors=borde_verde, labelsize=8)
+        ax.spines["bottom"].set_color(borde_verde)
+        ax.spines["left"].set_color(borde_verde)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.set_ylim(0, 1.1)
+        ax.set_xlim(400, 750)
+
+    fig_abs.subplots_adjust(bottom=0.18, top=0.8, left=0.15, right=0.95)
+    fig_flu.subplots_adjust(bottom=0.18, top=0.8, left=0.15, right=0.95)
+
+    canvas_abs = FigureCanvasTkAgg(fig_abs, master=frame_arriba)
+    canvas_abs.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    canvas_flu = FigureCanvasTkAgg(fig_flu, master=frame_abajo)
+    canvas_flu.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    canvas_luz = tk.Canvas(
+        frame_medio,
+        bg=bg_color,
+        height=160,
+        highlightthickness=1,
+        highlightbackground=borde_verde,
+    )
+    canvas_luz.pack(fill=tk.BOTH, expand=True)
+
+    x_vals = np.linspace(400, 750, 200)
+    (linea_abs,) = ax_abs.plot(x_vals, np.zeros_like(x_vals), linewidth=2.5)
+    (linea_flu,) = ax_flu.plot(x_vals, np.zeros_like(x_vals), linewidth=2.5)
+
+    integrar_panel_central_atomo(app)
+
+    ultima_onda, ultima_intensidad, ultimo_estado_laser = -1, -1, None
+    tiempo_fase = 0.0
+
+    def monitorear_cambios():
+        nonlocal ultima_onda, ultima_intensidad, ultimo_estado_laser, tiempo_fase
+
+        onda_actual = app.wavelength
+        intensidad_actual = app.intensidad
+        laser_activo = app.laser_encendido
+
+        desplazamiento_stokes = 60
+        onda_emitida = onda_actual + desplazamiento_stokes
+
+        esta_absorbiendo = (
+            laser_activo
+            and app.banda_absorcion_min <= onda_actual <= app.banda_absorcion_max
+        )
+
+        if (
+            (onda_actual != ultima_onda)
+            or (intensidad_actual != ultima_intensidad)
+            or (laser_activo != ultimo_estado_laser)
+        ):
+            color_abs = app.wavelength_to_hex(min(onda_actual, 700))
+            color_flu = app.wavelength_to_hex(min(onda_emitida, 700))
+
+            altura_grafica = intensidad_actual / 100.0 if esta_absorbiendo else 0.0
+
+            abs_y = curva_gaussiana(
+                x_vals, mu=onda_actual, sigma=15, amplitud=altura_grafica
+            )
+            flu_y = curva_gaussiana(
+                x_vals, mu=onda_emitida, sigma=25, amplitud=altura_grafica * 0.8
+            )
+
+            linea_abs.set_ydata(abs_y)
+            linea_abs.set_color(color_abs)
+            linea_flu.set_ydata(flu_y)
+            linea_flu.set_color(color_flu)
+
+            canvas_abs.draw()
+            canvas_flu.draw()
+
+            ultima_onda, ultima_intensidad, ultimo_estado_laser = (
+                onda_actual,
+                intensidad_actual,
+                laser_activo,
+            )
+
+        canvas_luz.delete("all")
+        w = canvas_luz.winfo_width()
+        h = canvas_luz.winfo_height()
+
+        if w > 1:
+            color_fluorescencia = app.wavelength_to_hex(min(onda_emitida, 700))
+
+            if esta_absorbiendo:
+                tiempo_fase += 0.4
+                amplitud = max(2, (intensidad_actual / 100.0) * 10)
+                y_centro = h / 2
+
+                num_rayos = 5
+                paso_angular = 25
+
+                for i in range(num_rayos):
+                    y_fin = y_centro + (i - (num_rayos // 2)) * paso_angular
+                    puntos_flu = []
+
+                    for cx in range(0, int(w), 4):
+                        factor_x = cx / w
+                        base_y = y_centro + factor_x * (y_fin - y_centro)
+                        fase_flu = cx * 0.1 + tiempo_fase + (i * 0.5)
+                        puntos_flu.extend(
+                            [cx, base_y + (amplitud * 0.6) * math.sin(fase_flu)]
+                        )
+
+                    if len(puntos_flu) >= 4:
+                        canvas_luz.create_line(
+                            puntos_flu, fill=color_fluorescencia, width=1.5
+                        )
+            else:
+                texto_estado = (
+                    "Fuera de rango de absorción (Prueba ~520nm)"
+                    if laser_activo
+                    else "Esperando radiación..."
+                )
+                canvas_luz.create_text(
+                    w / 2,
+                    h / 2,
+                    text=texto_estado,
+                    fill=borde_verde,
+                    font=("Arial", 9, "italic"),
+                )
+
+        root.after(35, monitorear_cambios)
+
+    monitorear_cambios()
     root.mainloop()
+
+
+if __name__ == "__main__":
+    iniciar_programa_completo()
